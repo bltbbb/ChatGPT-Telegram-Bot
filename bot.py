@@ -9,9 +9,6 @@ from md2tgmd import escape
 from ModelMerge.utils.prompt import translator_en2zh_prompt, translator_prompt, claude3_doc_assistant_prompt
 from ModelMerge.utils.scripts import Document_extract, claude_replace, get_image_message
 
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from threading import Thread
-
 import config
 from config import (
     WEB_HOOK,
@@ -56,17 +53,6 @@ httpx_logger.setLevel(logging.CRITICAL)
 
 httpx_logger = logging.getLogger("chromadb.telemetry.posthog")
 httpx_logger.setLevel(logging.WARNING)
-
-class HealthCheckHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        # 响应所有 GET 请求，返回 HTTP 状态码 200
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"OK")
-
-def run_health_check_server(port):
-    httpd = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
-    httpd.serve_forever()
 
 class SpecificStringFilter(logging.Filter):
     def __init__(self, specific_string):
@@ -609,13 +595,6 @@ class handler(BaseHTTPRequestHandler):
         return
 
 if __name__ == '__main__':
-
-     # 启动健康检查 HTTP 服务器
-    health_check_port = 8080  # 或者任何 Koyeb 指定的端口
-    health_check_server_thread = Thread(target=run_health_check_server, args=(health_check_port,))
-    health_check_server_thread.daemon = True  # 设置为守护线程，这样主程序结束时 HTTP 服务器也会结束
-    health_check_server_thread.start()
-
     time_out = 600
     application = (
         ApplicationBuilder()
