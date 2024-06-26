@@ -11,7 +11,6 @@ from ModelMerge.utils.scripts import Document_extract, claude_replace, get_image
 
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from threading import Thread
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
 
 import config
 from config import (
@@ -57,6 +56,17 @@ httpx_logger.setLevel(logging.CRITICAL)
 
 httpx_logger = logging.getLogger("chromadb.telemetry.posthog")
 httpx_logger.setLevel(logging.WARNING)
+
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        # 响应所有 GET 请求，返回 HTTP 状态码 200
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+def run_health_check_server(port):
+    httpd = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
+    httpd.serve_forever()
 
 class SpecificStringFilter(logging.Filter):
     def __init__(self, specific_string):
@@ -599,6 +609,13 @@ class handler(BaseHTTPRequestHandler):
         return
 
 if __name__ == '__main__':
+
+     # 启动健康检查 HTTP 服务器
+    health_check_port = 8080  # 或者任何 Koyeb 指定的端口
+    health_check_server_thread = Thread(target=run_health_check_server, args=(health_check_port,))
+    health_check_server_thread.daemon = True  # 设置为守护线程，这样主程序结束时 HTTP 服务器也会结束
+    health_check_server_thread.start()
+
     time_out = 600
     application = (
         ApplicationBuilder()
@@ -639,42 +656,3 @@ if __name__ == '__main__':
         application.run_webhook("0.0.0.0", PORT, webhook_url=WEB_HOOK)
     else:
         application.run_polling(timeout=time_out)
-
-
-
-
-
-
-# HTTP请求处理器类
-class HealthCheckHandler(BaseHTTPRequestHandler):
-    def do_GET(self):
-        # 响应所有GET请求，返回HTTP状态码200
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(b"OK")
-
-# 运行HTTP服务器的函数
-def run_health_check_server(port):
-    httpd = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
-    httpd.serve_forever()
-
-# 主函数
-def main():
-    # 启动健康检查HTTP服务器
-    health_check_port = 8080  # 确保这是Koyeb要求你监听的端口
-    health_check_server_thread = Thread(target=run_health_check_server, args=(health_check_port,))
-    health_check_server_thread.daemon = True  # 设置为守护线程，这样主程序结束时HTTP服务器也会结束
-    health_check_server_thread.start()
-
-    # Telegram机器人设置
-    updater = Updater("YOUR_TOKEN", use_context=True)
-    dp = updater.dispatcher
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, echo))
-
-    # 启动机器人
-    updater.start_polling()
-    updater.idle()
-
-if __name__ == '__main__':
-    main()
